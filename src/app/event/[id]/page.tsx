@@ -100,11 +100,16 @@ export default function EventDetail() {
 
         // Record discovered event for logged-in users
         if (user && id) {
-          await supabase.from("discovered_events").upsert({
-            user_id: user.id,
-            event_id: id,
-            discovered_via_invite_id: invite.id,
-          });
+          try {
+            await supabase.from("discovered_events").upsert({
+              user_id: user.id,
+              event_id: id,
+              discovered_via_invite_id: invite.id,
+            });
+            console.log("Recorded discovered event for user:", user.id);
+          } catch (error) {
+            console.error("Error recording discovered event:", error);
+          }
         }
       }
     }
@@ -137,34 +142,38 @@ export default function EventDetail() {
 
     setRsvpLoading(true);
 
-    // Assuming rsvps table exists
-    const { error } = await supabase.from("rsvps").insert({
-      event_id: event.id,
-      user_id: user.id,
-    });
-
-    if (error) {
-      console.error("Error RSVPing:", error);
-    } else {
-      setHasRsvped(true);
-      posthog.capture("rsvp_event", {
+    try {
+      // Use upsert - if it already exists, it won't error
+      const { error } = await supabase.from("rsvps").upsert({
         event_id: event.id,
-        event_name: event.name,
+        user_id: user.id,
       });
 
-      // Track referral if applicable
-      const refCode = localStorage.getItem("referral_code");
-      if (refCode) {
-        const { data: invite } = await supabase
-          .from("invites")
-          .select("*")
-          .eq("code", refCode)
-          .single();
+      if (error) {
+        console.error("Error RSVPing:", error);
+      } else {
+        setHasRsvped(true);
+        posthog.capture("rsvp_event", {
+          event_id: event.id,
+          event_name: event.name,
+        });
 
-        if (invite) {
-          await trackReferral(invite.id, "rsvp");
+        // Track referral if applicable
+        const refCode = localStorage.getItem("referral_code");
+        if (refCode) {
+          const { data: invite } = await supabase
+            .from("invites")
+            .select("*")
+            .eq("code", refCode)
+            .single();
+
+          if (invite) {
+            await trackReferral(invite.id, "rsvp");
+          }
         }
       }
+    } catch (error) {
+      console.error("RSVP error:", error);
     }
 
     setRsvpLoading(false);

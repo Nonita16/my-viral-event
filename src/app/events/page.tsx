@@ -26,6 +26,7 @@ export default function Events() {
   const { user, loading } = useAuth();
   const [events, setEvents] = useState<Event[]>([]);
   const [discoveredEvents, setDiscoveredEvents] = useState<Event[]>([]);
+  const [rsvpedEvents, setRsvpedEvents] = useState<Event[]>([]);
   const [browseEvents, setBrowseEvents] = useState<Event[]>([]);
   const [imageSuggestions, setImageSuggestions] = useState<ImageResult[]>([]);
   const [loadingImages, setLoadingImages] = useState(false);
@@ -42,6 +43,7 @@ export default function Events() {
     if (user) {
       fetchEvents();
       fetchDiscoveredEvents();
+      fetchRsvpedEvents();
     }
     // Always fetch browse events for all users
     fetchBrowseEvents();
@@ -113,6 +115,34 @@ export default function Events() {
     else setBrowseEvents(data || []);
   };
 
+  const fetchRsvpedEvents = async () => {
+    const { data, error } = await supabase
+      .from("rsvps")
+      .select(
+        `
+        events (
+          id,
+          name,
+          date,
+          description,
+          location,
+          image_url,
+          user_id,
+          created_at
+        )
+      `
+      )
+      .eq("user_id", user!.id);
+
+    if (error) console.error("Error fetching RSVPed events:", error);
+    else {
+      const events =
+        (data?.map((item: any) => item.events).filter(Boolean) as Event[]) ||
+        [];
+      setRsvpedEvents(events);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
@@ -121,10 +151,12 @@ export default function Events() {
     // Generate image URL if not provided
     let eventData = { ...form, user_id: user.id };
     if (!eventData.image_url) {
-      // Generate a temporary image URL based on event name
-      const tempId = `${user.id}-${Date.now()}`;
-      const imageResult = await getEventImage(tempId);
-      eventData.image_url = imageResult.url;
+      // Generate a consistent image URL using a predictable seed
+      const seed =
+        `${user.id}-${form.name}-${Date.now()}`
+          .split("")
+          .reduce((acc, char) => acc + char.charCodeAt(0), 0) % 10000;
+      eventData.image_url = `https://picsum.photos/400/400?random=${seed}`;
     }
 
     const { data, error } = await supabase
@@ -133,19 +165,8 @@ export default function Events() {
       .select()
       .single();
 
-    if (error) console.error(error);
+    if (error) console.error("Error creating event:", error);
     else {
-      // Update with consistent image URL based on actual event ID
-      if (data && data.id) {
-        const imageResult = await getEventImage(data.id);
-        if (imageResult.url !== data.image_url) {
-          await supabase
-            .from("events")
-            .update({ image_url: imageResult.url })
-            .eq("id", data.id);
-        }
-      }
-
       posthog.capture("create_event", {
         event_name: form.name,
         event_date: form.date,
@@ -160,6 +181,7 @@ export default function Events() {
         image_url: "",
       });
       fetchEvents();
+      fetchBrowseEvents(); // Refresh browse events too
     }
     setSubmitting(false);
   };
@@ -260,7 +282,7 @@ export default function Events() {
         {events.map((event) => (
           <li
             key={event.id}
-            className="border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+            className="w-full max-w-sm mx-auto bg-white border border-gray-200 rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300"
           >
             {event.image_url && (
               <img
@@ -298,7 +320,47 @@ export default function Events() {
             {discoveredEvents.map((event) => (
               <li
                 key={event.id}
-                className="border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+                className="w-full max-w-sm mx-auto bg-white border border-gray-200 rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300"
+              >
+                {event.image_url && (
+                  <img
+                    src={event.image_url}
+                    alt={event.name}
+                    className="w-full h-48 object-cover"
+                  />
+                )}
+                <div className="p-4">
+                  <h3 className="font-bold text-lg mb-2">{event.name}</h3>
+                  <p className="text-gray-600 text-sm mb-1">
+                    {new Date(event.date).toLocaleString()}
+                  </p>
+                  <p className="text-gray-700 text-sm mb-2 line-clamp-2">
+                    {event.description}
+                  </p>
+                  <p className="text-gray-500 text-sm mb-3">{event.location}</p>
+                  <a
+                    href={`/event/${event.id}`}
+                    className="text-blue-500 hover:underline text-sm font-medium"
+                  >
+                    View Event Details →
+                  </a>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      {rsvpedEvents.length > 0 && (
+        <>
+          <h2 className="text-xl font-semibold mb-4 mt-8">
+            Events I'm Attending
+          </h2>
+          <ul className="space-y-4">
+            {rsvpedEvents.map((event) => (
+              <li
+                key={event.id}
+                className="w-full max-w-sm mx-auto bg-white border border-gray-200 rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300"
               >
                 {event.image_url && (
                   <img
@@ -336,7 +398,7 @@ export default function Events() {
             {browseEvents.slice(0, 10).map((event) => (
               <li
                 key={event.id}
-                className="border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+                className="w-full max-w-sm mx-auto bg-white border border-gray-200 rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300"
               >
                 {event.image_url && (
                   <img
