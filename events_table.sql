@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS events (
   date TIMESTAMPTZ NOT NULL,
   description TEXT,
   location TEXT,
+  image_url TEXT,
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -31,3 +32,7 @@ CREATE POLICY "Users can update their own events" ON events
 -- Policy: Users can delete their own events
 CREATE POLICY "Users can delete their own events" ON events
   FOR DELETE USING (auth.uid() = user_id);
+
+-- Policy: Allow public access to view events (for invite links)
+CREATE POLICY "Public can view events" ON events
+  FOR SELECT USING (true);

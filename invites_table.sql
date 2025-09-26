@@ -56,3 +56,7 @@ CREATE POLICY "Users can delete invites for their events" ON invites
       AND events.user_id = auth.uid()
     )
   );
+
+-- Policy: Allow public access to validate invite codes (for referral tracking)
+CREATE POLICY "Public can validate invite codes" ON invites
+  FOR SELECT USING (true);

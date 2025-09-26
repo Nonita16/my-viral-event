@@ -12,6 +12,7 @@ interface Event {
   date: string;
   description: string;
   location: string;
+  image_url?: string;
   user_id: string;
   created_at: string;
 }
@@ -96,6 +97,15 @@ export default function EventDetail() {
       if (invite && !error) {
         // Track click
         await trackReferral(invite.id, "click");
+
+        // Record discovered event for logged-in users
+        if (user && id) {
+          await supabase.from("discovered_events").upsert({
+            user_id: user.id,
+            event_id: id,
+            discovered_via_invite_id: invite.id,
+          });
+        }
       }
     }
   };
@@ -165,6 +175,13 @@ export default function EventDetail() {
 
   return (
     <div className="container mx-auto p-4 max-w-2xl">
+      {event.image_url && (
+        <img
+          src={event.image_url}
+          alt={event.name}
+          className="w-full h-64 object-cover rounded-lg mb-6"
+        />
+      )}
       <h1 className="text-3xl font-bold mb-4">{event.name}</h1>
       <div className="mb-6">
         <p className="text-gray-600 mb-2">
