@@ -28,12 +28,22 @@ const trackReferral = async (userId: string, actionType: string) => {
     const sessionId = localStorage.getItem("session_id") || crypto.randomUUID();
     localStorage.setItem("session_id", sessionId);
 
+    // Record referral action
     await supabase.from("referrals").insert({
       invite_id: invite.id,
       action_type: actionType,
       user_id: userId,
       session_id: sessionId,
     });
+
+    // Record discovered event for signup
+    if (actionType === "signup") {
+      await supabase.from("discovered_events").upsert({
+        user_id: userId,
+        event_id: invite.event_id,
+        discovered_via_invite_id: invite.id,
+      });
+    }
   }
 };
 

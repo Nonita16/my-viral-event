@@ -20,6 +20,22 @@ const IMAGE_APIS = {
   // Pexels API would require an API key, so we'll use alternatives
 };
 
+// Get a consistent event image based on event ID
+export async function getEventImage(eventId: string): Promise<ImageResult> {
+  // Create a consistent seed from the event ID
+  const seed =
+    eventId.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0) % 1000;
+
+  // Use Lorem Picsum with seed for consistency
+  const imageUrl = `https://picsum.photos/800/400?random=${seed}`;
+
+  return {
+    url: imageUrl,
+    alt: "Event image",
+    source: "Lorem Picsum",
+  };
+}
+
 // Get a random event-related image
 export async function getRandomEventImage(): Promise<ImageResult> {
   const eventKeywords = [

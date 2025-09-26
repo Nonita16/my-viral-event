@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import {
+  getEventImage,
   getRandomEventImage,
   getImageSuggestions,
   ImageResult,
@@ -25,6 +26,7 @@ export default function Events() {
   const { user, loading } = useAuth();
   const [events, setEvents] = useState<Event[]>([]);
   const [discoveredEvents, setDiscoveredEvents] = useState<Event[]>([]);
+  const [browseEvents, setBrowseEvents] = useState<Event[]>([]);
   const [imageSuggestions, setImageSuggestions] = useState<ImageResult[]>([]);
   const [loadingImages, setLoadingImages] = useState(false);
   const [form, setForm] = useState({
@@ -41,6 +43,8 @@ export default function Events() {
       fetchEvents();
       fetchDiscoveredEvents();
     }
+    // Always fetch browse events for all users
+    fetchBrowseEvents();
   }, [user]);
 
   const fetchEvents = async () => {
@@ -97,16 +101,51 @@ export default function Events() {
     setImageSuggestions([]);
   };
 
+  const fetchBrowseEvents = async () => {
+    // Get recent public events (limit to recent ones for performance)
+    const { data, error } = await supabase
+      .from("events")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(20); // Show recent 20 events
+
+    if (error) console.error(error);
+    else setBrowseEvents(data || []);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
     setSubmitting(true);
-    const { error } = await supabase.from("events").insert({
-      ...form,
-      user_id: user.id,
-    });
+
+    // Generate image URL if not provided
+    let eventData = { ...form, user_id: user.id };
+    if (!eventData.image_url) {
+      // Generate a temporary image URL based on event name
+      const tempId = `${user.id}-${Date.now()}`;
+      const imageResult = await getEventImage(tempId);
+      eventData.image_url = imageResult.url;
+    }
+
+    const { data, error } = await supabase
+      .from("events")
+      .insert(eventData)
+      .select()
+      .single();
+
     if (error) console.error(error);
     else {
+      // Update with consistent image URL based on actual event ID
+      if (data && data.id) {
+        const imageResult = await getEventImage(data.id);
+        if (imageResult.url !== data.image_url) {
+          await supabase
+            .from("events")
+            .update({ image_url: imageResult.url })
+            .eq("id", data.id);
+        }
+      }
+
       posthog.capture("create_event", {
         event_name: form.name,
         event_date: form.date,
@@ -219,17 +258,33 @@ export default function Events() {
       <h2 className="text-xl font-semibold mb-4">Your Events</h2>
       <ul className="space-y-4">
         {events.map((event) => (
-          <li key={event.id} className="border border-gray-200 rounded p-4">
-            <h3 className="font-bold">{event.name}</h3>
-            <p>{new Date(event.date).toLocaleString()}</p>
-            <p>{event.description}</p>
-            <p>{event.location}</p>
-            <a
-              href={`/event/${event.id}`}
-              className="text-blue-500 hover:underline mt-2 inline-block"
-            >
-              View Event Details
-            </a>
+          <li
+            key={event.id}
+            className="border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+          >
+            {event.image_url && (
+              <img
+                src={event.image_url}
+                alt={event.name}
+                className="w-full h-48 object-cover"
+              />
+            )}
+            <div className="p-4">
+              <h3 className="font-bold text-lg mb-2">{event.name}</h3>
+              <p className="text-gray-600 text-sm mb-1">
+                {new Date(event.date).toLocaleString()}
+              </p>
+              <p className="text-gray-700 text-sm mb-2 line-clamp-2">
+                {event.description}
+              </p>
+              <p className="text-gray-500 text-sm mb-3">{event.location}</p>
+              <a
+                href={`/event/${event.id}`}
+                className="text-blue-500 hover:underline text-sm font-medium"
+              >
+                View Event Details →
+              </a>
+            </div>
           </li>
         ))}
       </ul>
@@ -241,24 +296,71 @@ export default function Events() {
           </h2>
           <ul className="space-y-4">
             {discoveredEvents.map((event) => (
-              <li key={event.id} className="border border-gray-200 rounded p-4">
+              <li
+                key={event.id}
+                className="border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+              >
                 {event.image_url && (
                   <img
                     src={event.image_url}
                     alt={event.name}
-                    className="w-full h-48 object-cover rounded mb-4"
+                    className="w-full h-48 object-cover"
                   />
                 )}
-                <h3 className="font-bold">{event.name}</h3>
-                <p>{new Date(event.date).toLocaleString()}</p>
-                <p>{event.description}</p>
-                <p>{event.location}</p>
-                <a
-                  href={`/event/${event.id}`}
-                  className="text-blue-500 hover:underline mt-2 inline-block"
-                >
-                  View Event Details
-                </a>
+                <div className="p-4">
+                  <h3 className="font-bold text-lg mb-2">{event.name}</h3>
+                  <p className="text-gray-600 text-sm mb-1">
+                    {new Date(event.date).toLocaleString()}
+                  </p>
+                  <p className="text-gray-700 text-sm mb-2 line-clamp-2">
+                    {event.description}
+                  </p>
+                  <p className="text-gray-500 text-sm mb-3">{event.location}</p>
+                  <a
+                    href={`/event/${event.id}`}
+                    className="text-blue-500 hover:underline text-sm font-medium"
+                  >
+                    View Event Details →
+                  </a>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      {browseEvents.length > 0 && (
+        <>
+          <h2 className="text-xl font-semibold mb-4 mt-8">Browse Events</h2>
+          <ul className="space-y-4">
+            {browseEvents.slice(0, 10).map((event) => (
+              <li
+                key={event.id}
+                className="border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+              >
+                {event.image_url && (
+                  <img
+                    src={event.image_url}
+                    alt={event.name}
+                    className="w-full h-48 object-cover"
+                  />
+                )}
+                <div className="p-4">
+                  <h3 className="font-bold text-lg mb-2">{event.name}</h3>
+                  <p className="text-gray-600 text-sm mb-1">
+                    {new Date(event.date).toLocaleString()}
+                  </p>
+                  <p className="text-gray-700 text-sm mb-2 line-clamp-2">
+                    {event.description}
+                  </p>
+                  <p className="text-gray-500 text-sm mb-3">{event.location}</p>
+                  <a
+                    href={`/event/${event.id}`}
+                    className="text-blue-500 hover:underline text-sm font-medium"
+                  >
+                    View Event Details →
+                  </a>
+                </div>
               </li>
             ))}
           </ul>
