@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import posthog from "posthog-js";
@@ -11,8 +11,15 @@ export default function Auth() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, user } = useAuth();
   const router = useRouter();
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (user) {
+      router.push("/");
+    }
+  }, [user, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,7 +37,7 @@ export default function Auth() {
       } else {
         await signUp(email, password);
       }
-      router.push("/"); // Redirect to home after auth
+      // AuthContext will handle redirect when user state updates
     } catch (err: any) {
       setError(err.message);
     } finally {
