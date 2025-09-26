@@ -7,6 +7,8 @@ import { supabase } from "@/lib/supabase";
 import { getImageSuggestions, ImageResult } from "@/lib/imageApi";
 import posthog from "posthog-js";
 
+export const dynamic = "force-dynamic";
+
 interface Event {
   id: string;
   name: string;

@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { connection } from "next/server";
 import "./globals.css";
 import PostHogProvider from "@/components/PostHogProvider";
 import { AuthProvider } from "@/contexts/AuthContext";
 import NavBar from "@/components/NavBar";
+
+export const dynamic = "force-dynamic";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -25,6 +28,9 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Force dynamic rendering to avoid static generation issues
+  connection();
+
   return (
     <html lang="en">
       <body

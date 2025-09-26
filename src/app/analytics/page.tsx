@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import posthog from "posthog-js";
@@ -14,6 +14,8 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
+
+export const dynamic = "force-dynamic";
 
 interface InviteStats {
   code: string;
@@ -33,7 +35,7 @@ interface SummaryStats {
   overallSignupToRsvpRate: number;
 }
 
-export default function Analytics() {
+function AnalyticsContent() {
   const { user, loading } = useAuth();
   const [inviteStats, setInviteStats] = useState<InviteStats[]>([]);
   const [summaryStats, setSummaryStats] = useState<SummaryStats>({
@@ -229,5 +231,13 @@ export default function Analytics() {
         </ResponsiveContainer>
       </div>
     </div>
+  );
+}
+
+export default function Analytics() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <AnalyticsContent />
+    </Suspense>
   );
 }

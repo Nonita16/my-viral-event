@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import posthog from "posthog-js";
+
+export const dynamic = "force-dynamic";
 
 interface Event {
   id: string;
@@ -24,7 +26,7 @@ interface Invite {
   created_at: string;
 }
 
-export default function Invites() {
+function InvitesContent() {
   const { user, loading } = useAuth();
   const [events, setEvents] = useState<Event[]>([]);
   const [invites, setInvites] = useState<Record<string, Invite[]>>({});
@@ -195,5 +197,13 @@ export default function Invites() {
         </div>
       ))}
     </div>
+  );
+}
+
+export default function Invites() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <InvitesContent />
+    </Suspense>
   );
 }
