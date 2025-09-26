@@ -13,14 +13,18 @@ export default function PostHogProvider({
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    posthog.init(process.env.NEXT_PUBLIC_POSTHOG_KEY!, {
-      api_host:
-        process.env.NEXT_PUBLIC_POSTHOG_HOST || "https://app.posthog.com",
-    });
+    const token = process.env.NEXT_PUBLIC_POSTHOG_KEY;
+    if (token && token !== "dummy_posthog_key") {
+      posthog.init(token, {
+        api_host:
+          process.env.NEXT_PUBLIC_POSTHOG_HOST || "https://app.posthog.com",
+      });
+    }
   }, []);
 
   useEffect(() => {
-    if (pathname) {
+    const token = process.env.NEXT_PUBLIC_POSTHOG_KEY;
+    if (pathname && token && token !== "dummy_posthog_key") {
       posthog.capture("$pageview", {
         $current_url: window.location.href,
       });

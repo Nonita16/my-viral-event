@@ -26,10 +26,13 @@ export default function Auth() {
     setLoading(true);
     setError("");
 
-    posthog.capture("auth_form_submit", {
-      action: isLogin ? "sign_in" : "sign_up",
-      email: email,
-    });
+    const token = process.env.NEXT_PUBLIC_POSTHOG_KEY;
+    if (token && token !== "dummy_posthog_key") {
+      posthog.capture("auth_form_submit", {
+        action: isLogin ? "sign_in" : "sign_up",
+        email: email,
+      });
+    }
 
     try {
       if (isLogin) {

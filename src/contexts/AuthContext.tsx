@@ -76,14 +76,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // Track signup on successful authentication
       if (event === "SIGNED_IN" && session?.user) {
         await trackReferral(session.user.id, "signup");
-        posthog.identify(session.user.id, {
-          email: session.user.email,
-          name: session.user.user_metadata?.name || session.user.email,
-        });
+        const token = process.env.NEXT_PUBLIC_POSTHOG_KEY;
+        if (token && token !== "dummy_posthog_key") {
+          posthog.identify(session.user.id, {
+            email: session.user.email,
+            name: session.user.user_metadata?.name || session.user.email,
+          });
+        }
       }
 
       if (event === "SIGNED_OUT") {
-        posthog.reset();
+        const token = process.env.NEXT_PUBLIC_POSTHOG_KEY;
+        if (token && token !== "dummy_posthog_key") {
+          posthog.reset();
+        }
       }
     });
 
