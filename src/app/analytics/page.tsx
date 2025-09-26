@@ -15,12 +15,6 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-interface Invite {
-  id: string;
-  code: string;
-  email_sent: boolean;
-}
-
 interface InviteStats {
   code: string;
   clicks: number;
@@ -56,6 +50,7 @@ export default function Analytics() {
     if (user) {
       fetchAnalytics();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const fetchAnalytics = async () => {

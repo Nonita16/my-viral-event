@@ -1,14 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
-import {
-  getEventImage,
-  getRandomEventImage,
-  getImageSuggestions,
-  ImageResult,
-} from "@/lib/imageApi";
+import { getImageSuggestions, ImageResult } from "@/lib/imageApi";
 import posthog from "posthog-js";
 
 interface Event {
@@ -20,6 +16,15 @@ interface Event {
   image_url?: string;
   user_id: string;
   created_at: string;
+}
+
+interface DiscoveredEventQueryResult {
+  event_id: string;
+  events: Event;
+}
+
+interface RsvpEventQueryResult {
+  events: Event | null;
 }
 
 export default function Events() {
@@ -47,6 +52,7 @@ export default function Events() {
     }
     // Always fetch browse events for all users
     fetchBrowseEvents();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const fetchEvents = async () => {
@@ -81,8 +87,9 @@ export default function Events() {
     if (error) console.error(error);
     else {
       const events =
-        (data?.map((item: any) => item.events).filter(Boolean) as Event[]) ||
-        [];
+        (data
+          ?.map((item: unknown) => (item as DiscoveredEventQueryResult).events)
+          .filter(Boolean) as Event[]) || [];
       setDiscoveredEvents(events);
     }
   };
@@ -137,8 +144,9 @@ export default function Events() {
     if (error) console.error("Error fetching RSVPed events:", error);
     else {
       const events =
-        (data?.map((item: any) => item.events).filter(Boolean) as Event[]) ||
-        [];
+        (data
+          ?.map((item: unknown) => (item as RsvpEventQueryResult).events)
+          .filter(Boolean) as Event[]) || [];
       setRsvpedEvents(events);
     }
   };
@@ -149,7 +157,7 @@ export default function Events() {
     setSubmitting(true);
 
     // Generate image URL if not provided
-    let eventData = { ...form, user_id: user.id };
+    const eventData = { ...form, user_id: user.id };
     if (!eventData.image_url) {
       // Generate a consistent image URL using a predictable seed
       const seed =
@@ -159,7 +167,7 @@ export default function Events() {
       eventData.image_url = `https://picsum.photos/400/400?random=${seed}`;
     }
 
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from("events")
       .insert(eventData)
       .select()
@@ -259,7 +267,7 @@ export default function Events() {
                   className="cursor-pointer border-2 border-gray-200 rounded hover:border-blue-500"
                   onClick={() => selectImage(suggestion.url)}
                 >
-                  <img
+                  <Image
                     src={suggestion.url}
                     alt={suggestion.alt}
                     className="w-full h-20 object-cover rounded"
@@ -285,7 +293,7 @@ export default function Events() {
             className="w-full max-w-sm mx-auto bg-white border border-gray-200 rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300"
           >
             {event.image_url && (
-              <img
+              <Image
                 src={event.image_url}
                 alt={event.name}
                 className="w-full h-48 object-cover"
@@ -323,7 +331,7 @@ export default function Events() {
                 className="w-full max-w-sm mx-auto bg-white border border-gray-200 rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300"
               >
                 {event.image_url && (
-                  <img
+                  <Image
                     src={event.image_url}
                     alt={event.name}
                     className="w-full h-48 object-cover"
@@ -354,7 +362,7 @@ export default function Events() {
       {rsvpedEvents.length > 0 && (
         <>
           <h2 className="text-xl font-semibold mb-4 mt-8">
-            Events I'm Attending
+            Events I&apos;m Attending
           </h2>
           <ul className="space-y-4">
             {rsvpedEvents.map((event) => (
@@ -363,7 +371,7 @@ export default function Events() {
                 className="w-full max-w-sm mx-auto bg-white border border-gray-200 rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300"
               >
                 {event.image_url && (
-                  <img
+                  <Image
                     src={event.image_url}
                     alt={event.name}
                     className="w-full h-48 object-cover"
@@ -401,7 +409,7 @@ export default function Events() {
                 className="w-full max-w-sm mx-auto bg-white border border-gray-200 rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300"
               >
                 {event.image_url && (
-                  <img
+                  <Image
                     src={event.image_url}
                     alt={event.name}
                     className="w-full h-48 object-cover"

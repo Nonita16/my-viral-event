@@ -36,7 +36,7 @@ export default function Invites() {
     if (user) {
       fetchEvents();
     }
-  }, [user]);
+  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchEvents = async () => {
     const { data, error } = await supabase

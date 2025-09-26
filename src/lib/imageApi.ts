@@ -38,15 +38,6 @@ export async function getEventImage(eventId: string): Promise<ImageResult> {
 
 // Get a random event-related image
 export async function getRandomEventImage(): Promise<ImageResult> {
-  const eventKeywords = [
-    "party",
-    "celebration",
-    "gathering",
-    "meeting",
-    "conference",
-    "festival",
-  ];
-
   // Use Lorem Picsum for consistent results
   const imageUrl = IMAGE_APIS.picsum(800, 400);
 

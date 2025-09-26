@@ -41,8 +41,10 @@ export default function Auth() {
         await signUp(email, password);
       }
       // AuthContext will handle redirect when user state updates
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const errorMessage =
+        err instanceof Error ? err.message : "An error occurred";
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

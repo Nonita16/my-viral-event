@@ -38,10 +38,12 @@ export async function POST(request: NextRequest) {
     await sgMail.send(msg);
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("SendGrid error:", error);
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { error: "Failed to send email", details: error.message },
+      { error: "Failed to send email", details: errorMessage },
       { status: 500 }
     );
   }

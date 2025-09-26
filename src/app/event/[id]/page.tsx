@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import posthog from "posthog-js";
+import Image from "next/image";
 
 interface Event {
   id: string;
@@ -15,11 +16,6 @@ interface Event {
   image_url?: string;
   user_id: string;
   created_at: string;
-}
-
-interface Invite {
-  id: string;
-  code: string;
 }
 
 export default function EventDetail() {
@@ -35,13 +31,13 @@ export default function EventDetail() {
       fetchEvent();
       handleReferralTracking();
     }
-  }, [id]);
+  }, [id, user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (user && event) {
       checkRsvpStatus();
     }
-  }, [user, event]);
+  }, [user, event]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchEvent = async () => {
     const { data, error } = await supabase
@@ -185,7 +181,7 @@ export default function EventDetail() {
   return (
     <div className="container mx-auto p-4 max-w-2xl">
       {event.image_url && (
-        <img
+        <Image
           src={event.image_url}
           alt={event.name}
           className="w-full h-64 object-cover rounded-lg mb-6"
@@ -204,7 +200,7 @@ export default function EventDetail() {
         <div>
           {hasRsvped ? (
             <p className="text-green-600 font-semibold">
-              You're going to this event!
+              You&apos;re going to this event!
             </p>
           ) : (
             <button

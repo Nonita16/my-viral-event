@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import Analytics from "../page";
@@ -26,7 +27,7 @@ vi.mock("posthog-js", () => ({
 
 // Mock recharts
 vi.mock("recharts", () => ({
-  BarChart: ({ children }: any) => (
+  BarChart: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="bar-chart">{children}</div>
   ),
   Bar: () => <div data-testid="bar" />,
@@ -35,7 +36,7 @@ vi.mock("recharts", () => ({
   CartesianGrid: () => <div data-testid="cartesian-grid" />,
   Tooltip: () => <div data-testid="tooltip" />,
   Legend: () => <div data-testid="legend" />,
-  ResponsiveContainer: ({ children }: any) => (
+  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="responsive-container">{children}</div>
   ),
 }));
