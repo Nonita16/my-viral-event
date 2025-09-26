@@ -1,107 +1,97 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
+import { useEffect, useState } from "react";
 import posthog from "posthog-js";
 
-export const dynamic = "force-dynamic";
-
-interface Event {
+interface ReferralCode {
   id: string;
-  name: string;
-  date: string;
-  description: string;
-  location: string;
   user_id: string;
+  referral_code: string;
   created_at: string;
 }
 
-interface Invite {
+interface Referral {
   id: string;
-  event_id: string;
-  referrer_id: string;
-  code: string;
-  email_sent: boolean;
-  created_at: string;
+  referral_code: string;
+  action_type: string;
+  event_id?: string;
+  user_id?: string;
+  session_id?: string;
+  timestamp: string;
 }
 
-function InvitesContent() {
-  const { user, loading } = useAuth();
-  const [events, setEvents] = useState<Event[]>([]);
-  const [invites, setInvites] = useState<Record<string, Invite[]>>({});
-  const [generating, setGenerating] = useState<string | null>(null);
-  const [sending, setSending] = useState<string | null>(null);
-  const [emailInputs, setEmailInputs] = useState<Record<string, string>>({});
+export default function Invites() {
+  const { user } = useAuth();
+  const [referralCode, setReferralCode] = useState<ReferralCode | null>(null);
+  const [referrals, setReferrals] = useState<Referral[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (user) {
-      fetchEvents();
+      fetchReferralData();
     }
-  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user]);
 
-  const fetchEvents = async () => {
-    const { data, error } = await supabase
-      .from("events")
-      .select("*")
-      .eq("user_id", user!.id)
-      .order("created_at", { ascending: false });
-    if (error) console.error(error);
-    else {
-      setEvents(data || []);
-      // Fetch invites for each event
-      const invitesMap: Record<string, Invite[]> = {};
-      for (const event of data || []) {
-        const { data: inviteData, error: inviteError } = await supabase
-          .from("invites")
-          .select("*")
-          .eq("event_id", event.id)
-          .order("created_at", { ascending: false });
-        if (inviteError) console.error(inviteError);
-        else invitesMap[event.id] = inviteData || [];
-      }
-      setInvites(invitesMap);
-    }
-  };
-
-  const generateInvite = async (eventId: string) => {
-    if (!user) return;
-    setGenerating(eventId);
-    const code = crypto.randomUUID().substring(0, 8); // Short code
-    const { error } = await supabase.from("invites").insert({
-      event_id: eventId,
-      referrer_id: user.id,
-      code,
-      email_sent: false,
-    });
-    if (error) console.error(error);
-    else {
-      posthog.capture("generate_invite", {
-        event_id: eventId,
-        invite_code: code,
-      });
-      fetchEvents(); // Refresh
-    }
-    setGenerating(null);
-  };
-
-  const copyLink = (eventId: string, code: string) => {
-    const link = `${window.location.origin}/event/${eventId}?ref=${code}`;
-    navigator.clipboard.writeText(link);
-    alert("Link copied to clipboard!");
-  };
-
-  const sendEmail = async (inviteId: string, email: string) => {
-    if (!email) return;
-    setSending(inviteId);
-    const invite = Object.values(invites)
-      .flat()
-      .find((i) => i.id === inviteId);
-    if (!invite) return;
-    const event = events.find((e) => e.id === invite.event_id);
-    if (!event) return;
-    const link = `${window.location.origin}/event/${invite.event_id}?ref=${invite.code}`;
+  const fetchReferralData = async () => {
     try {
+      // Get or create user's referral code
+      let { data: codeData, error: codeError } = await supabase
+        .from("user_referral_codes")
+        .select("*")
+        .eq("user_id", user!.id)
+        .single();
+
+      if (codeError && codeError.code === "PGRST116") {
+        // No referral code exists, create one
+        const newCode = crypto.randomUUID().substring(0, 8);
+        const { data: newCodeData, error: createError } = await supabase
+          .from("user_referral_codes")
+          .insert({
+            user_id: user!.id,
+            referral_code: newCode,
+          })
+          .select()
+          .single();
+
+        if (createError) throw createError;
+        codeData = newCodeData;
+      } else if (codeError) {
+        throw codeError;
+      }
+
+      setReferralCode(codeData);
+
+      // Fetch referrals for this code
+      const { data: referralsData, error: referralsError } = await supabase
+        .from("referrals")
+        .select("*")
+        .eq("referral_code", codeData.referral_code)
+        .order("timestamp", { ascending: false });
+
+      if (referralsError) throw referralsError;
+      setReferrals(referralsData || []);
+    } catch (error) {
+      console.error("Error fetching referral data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const copyReferralLink = () => {
+    if (referralCode) {
+      const link = `${window.location.origin}/auth?ref=${referralCode.referral_code}`;
+      navigator.clipboard.writeText(link);
+      // Could add a toast notification here
+    }
+  };
+
+  const sendEmail = async (email: string) => {
+    if (!referralCode) return;
+
+    try {
+      // Send email via API route
       const response = await fetch("/api/send-invite", {
         method: "POST",
         headers: {
@@ -109,101 +99,168 @@ function InvitesContent() {
         },
         body: JSON.stringify({
           email,
-          eventName: event.name,
-          inviteLink: link,
+          referralCode: referralCode.referral_code,
         }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to send email");
-      }
+      if (!response.ok) throw new Error("Failed to send email");
+
       posthog.capture("send_email", {
-        invite_id: inviteId,
-        event_id: invite.event_id,
         recipient_email: email,
-        invite_code: invite.code,
+        referral_code: referralCode.referral_code,
       });
-      // Update email_sent
-      await supabase
-        .from("invites")
-        .update({ email_sent: true })
-        .eq("id", inviteId);
-      fetchEvents(); // Refresh
+
+      // Could add success notification
     } catch (error) {
-      console.error(error);
+      console.error("Error sending email:", error);
     }
-    setSending(null);
   };
 
-  if (loading) return <div>Loading...</div>;
-  if (!user) return <div>Please log in to manage invites.</div>;
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
-  return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Invites</h1>
-      {events.map((event) => (
-        <div key={event.id} className="mb-8 border border-gray-200 rounded p-4">
-          <h2 className="text-xl font-semibold mb-2">{event.name}</h2>
-          <button
-            onClick={() => generateInvite(event.id)}
-            disabled={generating === event.id}
-            className="bg-green-500 text-white px-4 py-2 rounded mb-4"
-          >
-            {generating === event.id ? "Generating..." : "Generate Invite Code"}
-          </button>
-          <h3 className="text-lg font-medium mb-2">Invites</h3>
-          <ul className="space-y-2">
-            {(invites[event.id] || []).map((invite) => (
-              <li
-                key={invite.id}
-                className="flex items-center space-x-4 border border-gray-100 rounded p-2"
-              >
-                <span>Code: {invite.code}</span>
-                <button
-                  onClick={() => copyLink(event.id, invite.code)}
-                  className="bg-blue-500 text-white px-2 py-1 rounded text-sm"
-                >
-                  Copy Link
-                </button>
-                <input
-                  type="email"
-                  placeholder="Email"
-                  value={emailInputs[invite.id] || ""}
-                  onChange={(e) =>
-                    setEmailInputs({
-                      ...emailInputs,
-                      [invite.id]: e.target.value,
-                    })
-                  }
-                  className="border border-gray-300 rounded px-2 py-1"
-                />
-                <button
-                  onClick={() =>
-                    sendEmail(invite.id, emailInputs[invite.id] || "")
-                  }
-                  disabled={sending === invite.id || invite.email_sent}
-                  className="bg-purple-500 text-white px-2 py-1 rounded text-sm disabled:bg-gray-400"
-                >
-                  {sending === invite.id
-                    ? "Sending..."
-                    : invite.email_sent
-                      ? "Sent"
-                      : "Send Email"}
-                </button>
-              </li>
-            ))}
-          </ul>
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">
+            Access Denied
+          </h1>
+          <p className="text-gray-600">
+            Please log in to view your referral code.
+          </p>
         </div>
-      ))}
-    </div>
-  );
-}
+      </div>
+    );
+  }
 
-export default function Invites() {
+  // Calculate stats
+  const totalClicks = referrals.filter((r) => r.action_type === "click").length;
+  const totalSignups = referrals.filter(
+    (r) => r.action_type === "signup"
+  ).length;
+  const totalRsvps = referrals.filter((r) => r.action_type === "rsvp").length;
+  const conversionRate =
+    totalClicks > 0 ? ((totalSignups / totalClicks) * 100).toFixed(1) : "0";
+
   return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <InvitesContent />
-    </Suspense>
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-4xl mx-auto px-4">
+        <h1 className="text-3xl font-bold text-gray-900 mb-8">
+          My Referral Code
+        </h1>
+
+        {/* Referral Code Section */}
+        <div className="bg-white rounded-lg shadow p-6 mb-8">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">
+            Your Referral Link
+          </h2>
+          <div className="flex items-center space-x-4 mb-4">
+            <span className="font-mono text-lg bg-gray-100 px-4 py-2 rounded">
+              {referralCode?.referral_code}
+            </span>
+            <button
+              onClick={copyReferralLink}
+              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+            >
+              Copy Referral Link
+            </button>
+          </div>
+          <p className="text-gray-600 text-sm">
+            Share this link with friends. When they sign up and RSVP to events,
+            you'll get credit for the referrals!
+          </p>
+        </div>
+
+        {/* Stats Section */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white rounded-lg shadow p-4">
+            <h3 className="text-lg font-semibold text-gray-900">Clicks</h3>
+            <p className="text-2xl font-bold text-blue-600">{totalClicks}</p>
+          </div>
+          <div className="bg-white rounded-lg shadow p-4">
+            <h3 className="text-lg font-semibold text-gray-900">Signups</h3>
+            <p className="text-2xl font-bold text-green-600">{totalSignups}</p>
+          </div>
+          <div className="bg-white rounded-lg shadow p-4">
+            <h3 className="text-lg font-semibold text-gray-900">RSVPs</h3>
+            <p className="text-2xl font-bold text-purple-600">{totalRsvps}</p>
+          </div>
+          <div className="bg-white rounded-lg shadow p-4">
+            <h3 className="text-lg font-semibold text-gray-900">Conversion</h3>
+            <p className="text-2xl font-bold text-orange-600">
+              {conversionRate}%
+            </p>
+          </div>
+        </div>
+
+        {/* Email Invite Section */}
+        <div className="bg-white rounded-lg shadow p-6 mb-8">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">
+            Invite Friends via Email
+          </h2>
+          <div className="flex items-center space-x-2">
+            <input
+              type="email"
+              placeholder="friend@example.com"
+              className="flex-1 border rounded px-3 py-2"
+              id="email-input"
+            />
+            <button
+              onClick={() => {
+                const email = (
+                  document.getElementById("email-input") as HTMLInputElement
+                )?.value;
+                if (email) {
+                  sendEmail(email);
+                }
+              }}
+              className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition-colors"
+            >
+              Send Invite
+            </button>
+          </div>
+        </div>
+
+        {/* Recent Referrals */}
+        {referrals.length > 0 && (
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">
+              Recent Referrals
+            </h2>
+            <div className="space-y-2">
+              {referrals.slice(0, 10).map((referral) => (
+                <div
+                  key={referral.id}
+                  className="flex items-center justify-between py-2 border-b border-gray-100 last:border-b-0"
+                >
+                  <div className="flex items-center space-x-4">
+                    <span
+                      className={`px-2 py-1 rounded text-xs font-medium ${
+                        referral.action_type === "click"
+                          ? "bg-blue-100 text-blue-800"
+                          : referral.action_type === "signup"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-purple-100 text-purple-800"
+                      }`}
+                    >
+                      {referral.action_type.toUpperCase()}
+                    </span>
+                    <span className="text-gray-600">
+                      {new Date(referral.timestamp).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

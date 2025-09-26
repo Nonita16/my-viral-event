@@ -27,6 +27,7 @@ export default function EventDetail() {
   const [loading, setLoading] = useState(true);
   const [rsvpLoading, setRsvpLoading] = useState(false);
   const [hasRsvped, setHasRsvped] = useState(false);
+  const [userReferralCode, setUserReferralCode] = useState<string | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -38,8 +39,23 @@ export default function EventDetail() {
   useEffect(() => {
     if (user && event) {
       checkRsvpStatus();
+      fetchUserReferralCode();
     }
   }, [user, event]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const fetchUserReferralCode = async () => {
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from("user_referral_codes")
+      .select("referral_code")
+      .eq("user_id", user.id)
+      .single();
+
+    if (data && !error) {
+      setUserReferralCode(data.referral_code);
+    }
+  };
 
   const fetchEvent = async () => {
     const { data, error } = await supabase
@@ -63,17 +79,17 @@ export default function EventDetail() {
   const checkRsvpStatus = async () => {
     if (!user || !event) return;
 
-    // Assuming there's an rsvps table, but for now we'll use a simple check
-    // In a real implementation, you'd have an rsvps table
     const { data, error } = await supabase
       .from("rsvps")
       .select("*")
       .eq("event_id", event.id)
       .eq("user_id", user.id)
-      .single();
+      .maybeSingle(); // Use maybeSingle() instead of single() to handle no results
 
     if (data && !error) {
       setHasRsvped(true);
+    } else {
+      setHasRsvped(false);
     }
   };
 
@@ -85,38 +101,29 @@ export default function EventDetail() {
       // Store ref in localStorage for persistence
       localStorage.setItem("referral_code", refCode);
 
-      // Validate invite
-      const { data: invite, error } = await supabase
-        .from("invites")
+      // Validate referral code
+      const { data: referralCode, error } = await supabase
+        .from("user_referral_codes")
         .select("*")
-        .eq("code", refCode)
+        .eq("referral_code", refCode)
         .single();
 
-      if (invite && !error) {
+      if (referralCode && !error) {
         // Track click
-        await trackReferral(invite.id, "click");
-
-        // Record discovered event for logged-in users
-        if (user && id) {
-          try {
-            await supabase.from("discovered_events").upsert({
-              user_id: user.id,
-              event_id: id,
-              discovered_via_invite_id: invite.id,
-            });
-            console.log("Recorded discovered event for user:", user.id);
-          } catch (error) {
-            console.error("Error recording discovered event:", error);
-          }
-        }
+        await trackReferral(refCode, "click", id as string);
       }
     }
   };
 
-  const trackReferral = async (inviteId: string, actionType: string) => {
+  const trackReferral = async (
+    referralCode: string,
+    actionType: string,
+    eventId?: string
+  ) => {
     const { error } = await supabase.from("referrals").insert({
-      invite_id: inviteId,
+      referral_code: referralCode,
       action_type: actionType,
+      event_id: eventId,
       user_id: user?.id,
       session_id: getSessionId(),
     });
@@ -159,15 +166,7 @@ export default function EventDetail() {
         // Track referral if applicable
         const refCode = localStorage.getItem("referral_code");
         if (refCode) {
-          const { data: invite } = await supabase
-            .from("invites")
-            .select("*")
-            .eq("code", refCode)
-            .single();
-
-          if (invite) {
-            await trackReferral(invite.id, "rsvp");
-          }
+          await trackReferral(refCode, "rsvp", event.id);
         }
       }
     } catch (error) {

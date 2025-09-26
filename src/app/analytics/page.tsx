@@ -17,8 +17,8 @@ import {
 
 export const dynamic = "force-dynamic";
 
-interface InviteStats {
-  code: string;
+interface ReferralStats {
+  referralCode: string;
   clicks: number;
   signups: number;
   rsvps: number;
@@ -37,7 +37,7 @@ interface SummaryStats {
 
 function AnalyticsContent() {
   const { user, loading } = useAuth();
-  const [inviteStats, setInviteStats] = useState<InviteStats[]>([]);
+  const [referralStats, setReferralStats] = useState<ReferralStats[]>([]);
   const [summaryStats, setSummaryStats] = useState<SummaryStats>({
     totalInvitesSent: 0,
     totalClicks: 0,
@@ -58,86 +58,89 @@ function AnalyticsContent() {
   const fetchAnalytics = async () => {
     setLoadingData(true);
     try {
-      // Fetch invites for the user
-      const { data: invites, error: invitesError } = await supabase
-        .from("invites")
-        .select("id, code, email_sent")
-        .eq("referrer_id", user!.id);
+      // Get user's referral code
+      const { data: userReferral, error: referralError } = await supabase
+        .from("user_referral_codes")
+        .select("referral_code")
+        .eq("user_id", user!.id)
+        .single();
 
-      if (invitesError) throw invitesError;
+      if (referralError) {
+        console.error("No referral code found:", referralError);
+        setReferralStats([]);
+        setSummaryStats({
+          totalInvitesSent: 0,
+          totalClicks: 0,
+          totalSignups: 0,
+          totalRsvps: 0,
+          overallClickToSignupRate: 0,
+          overallSignupToRsvpRate: 0,
+        });
+        return;
+      }
 
-      const stats: InviteStats[] = [];
-      let totalInvitesSent = 0;
-      let totalClicks = 0;
-      let totalSignups = 0;
-      let totalRsvps = 0;
+      const referralCode = userReferral.referral_code;
 
-      for (const invite of invites || []) {
-        if (invite.email_sent) totalInvitesSent++;
+      // Fetch unique clicks
+      const { count: clicks, error: clicksError } = await supabase
+        .from("referrals")
+        .select("session_id", { count: "exact", head: true })
+        .eq("referral_code", referralCode)
+        .eq("action_type", "click")
+        .not("session_id", "is", null);
 
-        // Fetch unique clicks
-        const { count: clicks, error: clicksError } = await supabase
-          .from("referrals")
-          .select("session_id", { count: "exact", head: true })
-          .eq("invite_id", invite.id)
-          .eq("action_type", "click")
-          .not("session_id", "is", null);
+      if (clicksError) console.error(clicksError);
+      const uniqueClicks = clicks || 0;
 
-        if (clicksError) console.error(clicksError);
-        const uniqueClicks = clicks || 0;
+      // Fetch signups
+      const { count: signups, error: signupsError } = await supabase
+        .from("referrals")
+        .select("*", { count: "exact", head: true })
+        .eq("referral_code", referralCode)
+        .eq("action_type", "signup");
 
-        // Fetch signups
-        const { count: signups, error: signupsError } = await supabase
-          .from("referrals")
-          .select("*", { count: "exact", head: true })
-          .eq("invite_id", invite.id)
-          .eq("action_type", "signup");
+      if (signupsError) console.error(signupsError);
+      const signupCount = signups || 0;
 
-        if (signupsError) console.error(signupsError);
-        const signupCount = signups || 0;
+      // Fetch RSVPs
+      const { count: rsvps, error: rsvpsError } = await supabase
+        .from("referrals")
+        .select("*", { count: "exact", head: true })
+        .eq("referral_code", referralCode)
+        .eq("action_type", "rsvp");
 
-        // Fetch RSVPs
-        const { count: rsvps, error: rsvpsError } = await supabase
-          .from("referrals")
-          .select("*", { count: "exact", head: true })
-          .eq("invite_id", invite.id)
-          .eq("action_type", "rsvp");
+      if (rsvpsError) console.error(rsvpsError);
+      const rsvpCount = rsvps || 0;
 
-        if (rsvpsError) console.error(rsvpsError);
-        const rsvpCount = rsvps || 0;
+      const clickToSignupRate =
+        uniqueClicks > 0 ? (signupCount / uniqueClicks) * 100 : 0;
+      const signupToRsvpRate =
+        signupCount > 0 ? (rsvpCount / signupCount) * 100 : 0;
 
-        const clickToSignupRate =
-          uniqueClicks > 0 ? (signupCount / uniqueClicks) * 100 : 0;
-        const signupToRsvpRate =
-          signupCount > 0 ? (rsvpCount / signupCount) * 100 : 0;
-
-        stats.push({
-          code: invite.code,
+      const stats: ReferralStats[] = [
+        {
+          referralCode,
           clicks: uniqueClicks,
           signups: signupCount,
           rsvps: rsvpCount,
           clickToSignupRate: Math.round(clickToSignupRate * 100) / 100,
           signupToRsvpRate: Math.round(signupToRsvpRate * 100) / 100,
-        });
+        },
+      ];
 
-        totalClicks += uniqueClicks;
-        totalSignups += signupCount;
-        totalRsvps += rsvpCount;
-      }
-
-      setInviteStats(stats);
+      setReferralStats(stats);
       setSummaryStats({
-        totalInvitesSent,
-        totalClicks,
-        totalSignups,
-        totalRsvps,
+        totalInvitesSent: 0, // We'll track this differently now
+        totalClicks: uniqueClicks,
+        totalSignups: signupCount,
+        totalRsvps: rsvpCount,
         overallClickToSignupRate:
-          totalClicks > 0
-            ? Math.round((totalSignups / totalClicks) * 10000) / 100
+          uniqueClicks > 0
+            ? Math.round((signupCount / uniqueClicks) * 10000) / 100
             : 0,
         overallSignupToRsvpRate:
-          totalSignups > 0
-            ? Math.round((totalRsvps / totalSignups) * 10000) / 100
+          signupCount > 0
+            ? Math.round((rsvpCount / signupCount) * 10000) / 100
             : 0,
       });
     } catch (error) {
@@ -157,10 +160,6 @@ function AnalyticsContent() {
 
       {/* Summary Stats */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
-        <div className="bg-blue-100 p-4 rounded">
-          <h3 className="font-semibold">Total Invites Sent</h3>
-          <p className="text-2xl">{summaryStats.totalInvitesSent}</p>
-        </div>
         <div className="bg-green-100 p-4 rounded">
           <h3 className="font-semibold">Total Unique Clicks</h3>
           <p className="text-2xl">{summaryStats.totalClicks}</p>
@@ -181,15 +180,23 @@ function AnalyticsContent() {
           <h3 className="font-semibold">Signup to RSVP Rate</h3>
           <p className="text-2xl">{summaryStats.overallSignupToRsvpRate}%</p>
         </div>
+        <div className="bg-blue-100 p-4 rounded">
+          <h3 className="font-semibold">Your Referral Code</h3>
+          <p className="text-lg font-mono">
+            {referralStats[0]?.referralCode || "None"}
+          </p>
+        </div>
       </div>
 
       {/* Table */}
       <div className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">Invite Code Performance</h2>
+        <h2 className="text-xl font-semibold mb-4">
+          Your Referral Performance
+        </h2>
         <table className="min-w-full bg-white border border-gray-200">
           <thead>
             <tr>
-              <th className="py-2 px-4 border-b">Code</th>
+              <th className="py-2 px-4 border-b">Referral Code</th>
               <th className="py-2 px-4 border-b">Clicks</th>
               <th className="py-2 px-4 border-b">Signups</th>
               <th className="py-2 px-4 border-b">RSVPs</th>
@@ -198,9 +205,11 @@ function AnalyticsContent() {
             </tr>
           </thead>
           <tbody>
-            {inviteStats.map((stat) => (
-              <tr key={stat.code}>
-                <td className="py-2 px-4 border-b">{stat.code}</td>
+            {referralStats.map((stat) => (
+              <tr key={stat.referralCode}>
+                <td className="py-2 px-4 border-b font-mono">
+                  {stat.referralCode}
+                </td>
                 <td className="py-2 px-4 border-b">{stat.clicks}</td>
                 <td className="py-2 px-4 border-b">{stat.signups}</td>
                 <td className="py-2 px-4 border-b">{stat.rsvps}</td>
@@ -215,21 +224,25 @@ function AnalyticsContent() {
       </div>
 
       {/* Chart */}
-      <div>
-        <h2 className="text-xl font-semibold mb-4">Performance Chart</h2>
-        <ResponsiveContainer width="100%" height={400}>
-          <BarChart data={inviteStats}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="code" />
-            <YAxis />
-            <Tooltip />
-            <Legend />
-            <Bar dataKey="clicks" fill="#8884d8" name="Clicks" />
-            <Bar dataKey="signups" fill="#82ca9d" name="Signups" />
-            <Bar dataKey="rsvps" fill="#ffc658" name="RSVPs" />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
+      {referralStats.length > 0 && (
+        <div>
+          <h2 className="text-xl font-semibold mb-4">
+            Your Referral Performance
+          </h2>
+          <ResponsiveContainer width="100%" height={400}>
+            <BarChart data={referralStats}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="referralCode" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Bar dataKey="clicks" fill="#8884d8" name="Clicks" />
+              <Bar dataKey="signups" fill="#82ca9d" name="Signups" />
+              <Bar dataKey="rsvps" fill="#ffc658" name="RSVPs" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
     </div>
   );
 }
