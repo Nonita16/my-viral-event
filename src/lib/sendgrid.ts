@@ -1,8 +1,2 @@
-import sgMail from "@sendgrid/mail";
-
-const apiKey = process.env.SENDGRID_API_KEY;
-if (apiKey) {
-  sgMail.setApiKey(apiKey);
-}
-
-export default sgMail;
+// This file is now only used for type definitions
+// Email sending is handled in API routes for server-side execution

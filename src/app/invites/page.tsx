@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
-import sendgrid from "@/lib/sendgrid";
 import posthog from "posthog-js";
 
 interface Event {
@@ -101,12 +100,21 @@ export default function Invites() {
     if (!event) return;
     const link = `${window.location.origin}/event/${invite.event_id}?ref=${invite.code}`;
     try {
-      await sendgrid.send({
-        to: email,
-        from: "noreply@yourdomain.com", // Replace with your verified SendGrid sender
-        subject: `You're invited to ${event.name}`,
-        html: `<p>Check out this event: <a href="${link}">${link}</a></p>`,
+      const response = await fetch("/api/send-invite", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          eventName: event.name,
+          inviteLink: link,
+        }),
       });
+
+      if (!response.ok) {
+        throw new Error("Failed to send email");
+      }
       posthog.capture("send_email", {
         invite_id: inviteId,
         event_id: invite.event_id,
