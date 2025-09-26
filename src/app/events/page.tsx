@@ -200,7 +200,7 @@ export default function Events() {
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-2xl font-bold mb-4">Events</h1>
-      <form onSubmit={handleSubmit} className="mb-8">
+      <form onSubmit={handleSubmit} className="mb-8 max-w-2xl mx-auto">
         <div className="mb-4">
           <label className="block text-sm font-medium">Name</label>
           <input
@@ -270,6 +270,8 @@ export default function Events() {
                   <Image
                     src={suggestion.url}
                     alt={suggestion.alt}
+                    width={200}
+                    height={80}
                     className="w-full h-20 object-cover rounded"
                   />
                 </div>
@@ -286,16 +288,18 @@ export default function Events() {
         </button>
       </form>
       <h2 className="text-xl font-semibold mb-4">Your Events</h2>
-      <ul className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {events.map((event) => (
-          <li
+          <div
             key={event.id}
-            className="w-full max-w-sm mx-auto bg-white border border-gray-200 rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300"
+            className="w-full bg-white border border-gray-200 rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300"
           >
             {event.image_url && (
               <Image
                 src={event.image_url}
                 alt={event.name}
+                width={400}
+                height={192}
                 className="w-full h-48 object-cover"
               />
             )}
@@ -315,25 +319,27 @@ export default function Events() {
                 View Event Details →
               </a>
             </div>
-          </li>
+          </div>
         ))}
-      </ul>
+      </div>
 
       {discoveredEvents.length > 0 && (
         <>
           <h2 className="text-xl font-semibold mb-4 mt-8">
             Events from Invites
           </h2>
-          <ul className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {discoveredEvents.map((event) => (
-              <li
+              <div
                 key={event.id}
-                className="w-full max-w-sm mx-auto bg-white border border-gray-200 rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300"
+                className="w-full bg-white border border-gray-200 rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300"
               >
                 {event.image_url && (
                   <Image
                     src={event.image_url}
                     alt={event.name}
+                    width={400}
+                    height={192}
                     className="w-full h-48 object-cover"
                   />
                 )}
@@ -353,9 +359,9 @@ export default function Events() {
                     View Event Details →
                   </a>
                 </div>
-              </li>
+              </div>
             ))}
-          </ul>
+          </div>
         </>
       )}
 
@@ -364,16 +370,18 @@ export default function Events() {
           <h2 className="text-xl font-semibold mb-4 mt-8">
             Events I&apos;m Attending
           </h2>
-          <ul className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {rsvpedEvents.map((event) => (
-              <li
+              <div
                 key={event.id}
-                className="w-full max-w-sm mx-auto bg-white border border-gray-200 rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300"
+                className="w-full bg-white border border-gray-200 rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300"
               >
                 {event.image_url && (
                   <Image
                     src={event.image_url}
                     alt={event.name}
+                    width={400}
+                    height={192}
                     className="w-full h-48 object-cover"
                   />
                 )}
@@ -393,25 +401,27 @@ export default function Events() {
                     View Event Details →
                   </a>
                 </div>
-              </li>
+              </div>
             ))}
-          </ul>
+          </div>
         </>
       )}
 
       {browseEvents.length > 0 && (
         <>
           <h2 className="text-xl font-semibold mb-4 mt-8">Browse Events</h2>
-          <ul className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {browseEvents.slice(0, 10).map((event) => (
-              <li
+              <div
                 key={event.id}
-                className="w-full max-w-sm mx-auto bg-white border border-gray-200 rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300"
+                className="w-full bg-white border border-gray-200 rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300"
               >
                 {event.image_url && (
                   <Image
                     src={event.image_url}
                     alt={event.name}
+                    width={400}
+                    height={192}
                     className="w-full h-48 object-cover"
                   />
                 )}
@@ -431,9 +441,9 @@ export default function Events() {
                     View Event Details →
                   </a>
                 </div>
-              </li>
+              </div>
             ))}
-          </ul>
+          </div>
         </>
       )}
     </div>

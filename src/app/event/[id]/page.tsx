@@ -184,6 +184,8 @@ export default function EventDetail() {
         <Image
           src={event.image_url}
           alt={event.name}
+          width={800}
+          height={256}
           className="w-full h-64 object-cover rounded-lg mb-6"
         />
       )}
