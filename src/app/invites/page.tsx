@@ -113,7 +113,8 @@ export default function Invites() {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to send email");
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to send email");
       }
       posthog.capture("send_email", {
         invite_id: inviteId,
