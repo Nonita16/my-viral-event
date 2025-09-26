@@ -14,7 +14,7 @@ export default function PostHogProvider({
 
   useEffect(() => {
     const token = process.env.NEXT_PUBLIC_POSTHOG_KEY;
-    if (token && token !== "dummy_posthog_key") {
+    if (token) {
       posthog.init(token, {
         api_host:
           process.env.NEXT_PUBLIC_POSTHOG_HOST || "https://app.posthog.com",
@@ -24,7 +24,7 @@ export default function PostHogProvider({
 
   useEffect(() => {
     const token = process.env.NEXT_PUBLIC_POSTHOG_KEY;
-    if (pathname && token && token !== "dummy_posthog_key") {
+    if (pathname && token) {
       posthog.capture("$pageview", {
         $current_url: window.location.href,
       });
