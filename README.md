@@ -41,7 +41,6 @@ A Next.js application for creating and managing viral events. This app allows us
    ```
 
 3. Set up environment variables:
-
    - Copy `.env.local.example` to `.env.local`
    - Fill in the required values (see Environment Variables section below)
 
@@ -81,10 +80,12 @@ The system uses Supabase to store referral relationships and PostHog for trackin
 
 ## Database Setup
 
-Run the SQL scripts in the root directory to set up the database tables:
+Run the SQL scripts in the root directory in the following order to set up the database tables:
 
-- `referrals_table.sql`: Creates the referrals table for tracking referral relationships.
-- `rsvps_table.sql`: Creates the RSVPs table for managing event responses.
+1. `events_table.sql`: Creates the events table for storing event information.
+2. `invites_table.sql`: Creates the invites table for managing referral codes and email invites.
+3. `referrals_table.sql`: Creates the referrals table for tracking referral relationships.
+4. `rsvps_table.sql`: Creates the RSVPs table for managing event responses.
 
 ## Testing
 
