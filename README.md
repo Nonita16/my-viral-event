@@ -1,6 +1,6 @@
 # My Viral Event
 
-A Next.js application for creating and managing viral events. This app allows users to create events, manage RSVPs, track referrals to boost event attendance, send invites, and analyze event performance through integrated analytics.
+A Next.js application for creating and managing viral events. This app allows users to create events, manage RSVPs, track referrals to boost event attendance, send invites via SendGrid, and analyze event performance through integrated analytics.
 
 ## Features
 
@@ -8,7 +8,7 @@ A Next.js application for creating and managing viral events. This app allows us
 - **User Authentication**: Secure login and registration using Supabase.
 - **RSVP System**: Allow users to RSVP to events.
 - **Referral Tracking**: Track and incentivize referrals to make events go viral.
-- **Invites**: Send email invites using Resend.
+- **Invites**: Send email invites using SendGrid.
 - **Analytics**: Monitor event performance with PostHog integration.
 - **Responsive Design**: Built with Next.js and Tailwind CSS for a modern UI.
 
@@ -64,7 +64,7 @@ This project requires the following environment variables to be set in your depl
 
 - `NEXT_PUBLIC_SUPABASE_URL`: Your Supabase project URL
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Your Supabase anonymous key
-- `RESEND_API_KEY`: Your Resend API key for email services
+- `SENDGRID_API_KEY`: Your SendGrid API key for email services
 - `POSTHOG_KEY`: Your PostHog project API key
 - `POSTHOG_HOST`: Your PostHog host URL (e.g., https://app.posthog.com)
 
@@ -76,7 +76,7 @@ Referral tracking is a key feature that helps events go viral. When users share 
 - Analyze which channels drive the most RSVPs.
 - Build a network effect where each attendee brings more attendees.
 
-The system uses Supabase to store referral relationships and PostHog for tracking user interactions and conversion funnels.
+The system uses Supabase to store referral relationships, SendGrid for email invites, and PostHog for tracking user interactions and conversion funnels.
 
 ## Database Setup
 
